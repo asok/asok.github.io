@@ -53,7 +53,7 @@ We've used `@tag signed_in: "jane"` to tag the test. Also observe that the `setu
 defmodule TodoApi.ConnCase do
 
   # ...
-  # deleted for breviety
+  # deleted for brevity
   # ...
 
   def create_user(%{name: name}) do
