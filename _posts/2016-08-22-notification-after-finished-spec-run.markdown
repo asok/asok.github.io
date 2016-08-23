@@ -5,7 +5,7 @@ date:   2016-08-22 18:56:00 +0200
 categories: emacs
 ---
 
-Recently I've setup my emacs to make my OS display a notification when a spec run finished. This way I could fire up a long running specs using the [rspec-mode`](https://github.com/pezra/rspec-mode) and switch to my browser in order to watch the stream from the Olympic games :) Once the process ended I got the notification to get back to work.
+Recently I've setup my emacs to make my OS display a notification when a spec run finished. This way I could fire up a long running specs using the [rspec-mode](https://github.com/pezra/rspec-mode) and switch to my browser in order to watch the stream from the Olympic games :) Once the process ended I got the notification to get back to work.
 
 ```elisp
 (add-to-list 'compilation-finish-functions
