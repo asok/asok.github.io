@@ -26,7 +26,7 @@ And bind it to "M-o":
 
 ```elisp
 (evil-define-key 'normal smartparens-mode-map
-         (kbd "M-o") #'asok/sp-open-line-below-sexp-command)
+         (kbd "M-o") #'sp-open-line-below-sexp-command)
 ```
 
 The command in action:
