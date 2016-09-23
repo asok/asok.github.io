@@ -1,0 +1,410 @@
+---
+layout: post
+title:  "real life example of parslet usage"
+date:   2016-09-22 11:00:00 +0200
+categories: ruby
+---
+
+I would like to introduce to you [parslet](http://kschiess.github.io/parslet/) gem. Parslet is a small library for "constructing parsers in PEG (Parsing Expression Grammar) fashion".
+The example below is a tutorial for this powerful library and an actual example how it was used by me in the past in a production system.
+
+# The idea
+
+Imagine that you have a web application that stores data about books. And let's say that you want to use Elasticsearch as a search engine.
+You want to give users the ability to search the books by title and the year of publication.
+For doing that the JS code in client side compiles a query String from the filters defined by a user. This query String is send to the server where it is converted to a Ruby Hash. The Hash is consumed by the Ruby [client](https://github.com/elastic/elasticsearch-ruby) for Elasticsearch.
+
+# The query format
+
+We need an idea how the query String would look like. I would do it like so: the field name is the part before `:` character. After it the searched value for the field is placed.
+For seperating multiple subqueries we will use `,,`. When looking for date ranges let's use `__` as the the range boundary.
+
+This table describes what we want:
+
+| Query string               | Description                                                                 |
+|----------------------------|-----------------------------------------------------------------------------|
+| titile:foo                 | Search for books with "foo" in the title                                    |
+| year:1954                  | Search for books published in 1954                                          |
+| year:__1956                | Search for books published before or in 1956                                |
+| year:1954__                | Search for books published after or in 1954                                 |
+| year:1954__1956            | Search for books published between 1954 and 1956                            |
+| title:foo,,year:__1956     | Search for books with "foo" in the title and published before or in 1956    |
+
+# Elasticsearch
+
+The Ruby client for Elasticsearch has the method `search` which accepts a Hash that represents the DSL used by the engine.
+
+For example:
+
+```rb
+require 'elasticsearch'
+
+client = Elasticsearch::Client.new log: true
+client.search body: {query: {match: {title: "foo"}}} # will give books with "foo" in the title
+```
+
+# The conversion
+
+The table gives examples how the conversions should look like:
+
+| Query string               | Ruby Hash                                                                                      |
+|----------------------------|------------------------------------------------------------------------------------------------|
+| titile:foo                 | `{query: {match: {title: "foo"}}}`                                                             |
+| year:1849                  | `{filtered: {filter: {term: {year: "1849"}}}}`                                                 |
+| year:__1849                | `{filtered: {filter: {range: {year:  {lte: "1849"}}}}`                                         |
+| year:1942__                | `{filtered: {filter: {range: {year:  {gte: "1842"}}}}`                                         |
+| year:1954__1956            | `{filtered: {filter: {range: {year:  {gte: "1842", lte: "1849"}}}}`                            |
+| title:foo,,year:__1956     | `{filtered: {query: {match: {'title' => "foo"}}, filter: {range: {'year' => {lte: "1956"}}}}}` |
+
+How to implement that? My proposition is to create a parser that will consume the query String and generate the query Hash for Elasticsearch.
+That's where parslet comes into play.
+
+# Parslet
+
+## Parsing the input
+
+Parslet allows you to write a parser that will take the input String (our query) and create a syntax tree according to the rules specified by the programmer. "fields", "values", "ranges" will be leaves of the tree that we can use to generate the necessary Hash.
+
+In order to create a parser one needs to create a class that inherits from `Parslet::Parser`.
+
+### Simple parser
+
+Let's start with something simple:
+
+```rb
+class Parser < Parslet::Parser
+  rule(:match_field) do
+    str('title')
+  end
+
+  rule(:filter_field) do
+    str('year')
+  end
+
+  rule(:value) do
+    any.repeat
+  end
+
+  rule(:subquery) do
+    (match_field.as(:match_field) | filter_field.as(:filter_field)) >> str(':') >> value.as(:value)
+  end
+
+  root(:subquery)
+end
+```
+
+I'll explain what happened here starting from top to bottom. First we've called `rule(:match_field)` and `rule(:filter_field)` - we've defined a rule for parsing `match_field` and `filter_field` respectively.
+If we do in the console:
+
+```rb
+match_rule = Parser.new.match_field
+match_rule.parse("title")   # => "title"@0
+
+filter_rule = Parser.new.filter_field
+filter_rule.parse("year")    # => "year"@0
+filter_rule.parse("author")  # => exception is thrown!
+```
+
+`match_field` is simply String "title" where `filter_field` is a String "year".
+
+
+Let's continue with the `value` rule:
+
+```rb
+value_rule = Parser.new.value
+value_rule.parse("a value!")        # => "a value!"@0
+value_rule.parse(" another value!") # => " another value!"@0
+```
+
+Basically `value` can be any non blank String.
+
+
+Now for the `subquery` rule:
+
+```rb
+subquery_rule = Parser.new.subquery
+subquery_rule.parse("title:foo") # => {:field=>"title"@0, :value=>"foo"@6}
+subquery_rule.parse("year:1954") # => {:field=>"year"@0, :value=>"1954"@5}
+subquery_rule.parse("author:1954") # => exception is thrown!
+```
+
+For this rule we've used alternative operator `|` and `>>` operator which chains atoms as a sequence. So a `subquery` is either `match_field` or `filter_field` followed by String `":"` and a `value`.
+As you might guess by now the method `as` is used to name the leaves of the outcoming tree.
+
+The `root` method specifies the main rule which the parser uses when it starts consuming the String:
+
+```rb
+parser = Parser.new
+parser.parse("title:foo") # => {:match_field=>"title"@0, :value=>"foo"@6}
+```
+
+### Parsing ranges
+
+Now we'll want to extend our parser to be able to capture the date ranges:
+
+```rb
+class Parser < Parslet::Parser
+  def year(name)
+    match('[0-9]').repeat(4).as(name)
+  end
+
+  rule(:match_field) do
+    str('title')
+  end
+
+  rule(:filter_field) do
+    str('year')
+  end
+
+  rule(:value) do
+    any.repeat
+  end
+
+  rule(:lte) do
+    str('__') >> year(:lte)
+  end
+
+  rule(:gte) do
+    year(:gte) >> str("__")
+  end
+
+  rule(:between) do
+    year(:gte) >> str('__') >> year(:lte)
+  end
+
+  rule(:range) do
+    lte | gte | between
+  end
+
+  rule(:subquery) do
+    (match_field.as(:match_field) | filter_field.as(:filter_field)) >>
+      str(':') >>
+      (range.as(:range) | value.as(:value))
+  end
+
+  root(:subquery)
+end
+```
+
+Note that `match` method accepts a String not a Regexp. Also the `match` method is for capturing a single character.
+So this works `match('[0-9]').repeat(4)` but this doesn't `match('[0-9]{4}')`.
+
+### Multiple filters
+
+The last thing to do is to be able to specify many subqueries at once:
+
+```rb
+class Parser < Parslet::Parser
+  def year(name)
+    match('[0-9]').repeat(4).as(name)
+  end
+
+  rule(:match_field) do
+    str('title')
+  end
+
+  rule(:filter_field) do
+    str('year')
+  end
+
+  rule(:value) do
+    (str(',,').absent? >> any).repeat
+  end
+
+  rule(:lte) do
+    str('__') >> year(:lte)
+  end
+
+  rule(:gte) do
+    year(:gte) >> str("__")
+  end
+
+  rule(:between) do
+    year(:gte) >> str("__") >> year(:lte)
+  end
+
+  rule(:range) do
+    between | lte | gte
+  end
+
+  rule(:subquery) do
+    (match_field.as(:match_field) | filter_field.as(:filter_field)) >>
+      str(':') >>
+      (range.as(:range) | value.as(:value))
+  end
+
+  rule(:subqueries) do
+    (subquery >> (str(',,') >> subquery).repeat(0)).repeat(1).as(:subqueries)
+  end
+
+  root(:subqueries)
+end
+```
+
+We've changed the `root` to be the new rule `subqueries`. `subqueries` can be a single `subquery` or multiple occurrences of a `subquery` separated by the String `,,`. Sweat!
+
+The other notable change is inside the `value` rule. The method `any` captures any character including `,` (our `subquery` delimiter). To mitigate this we use `absent?` which checks for the lack of presence of an atom (here `str(',,')`) but without capturing it. In order to grok it let's think how the parser consumes the input: `title:f,,year:1954`:
+
+```
+title:f,,year:1954
+     ^
+     |
+     -- Up until here it figured it out that this is the "match_field" rule.
+
+title:f,,year:1954
+      ^
+      |
+      -- Now it is matching against the "value" rule. "f" has been consumed.
+
+title:f,,year:1954
+       ^
+       |
+       -- "f," does not have ",," at the beginning so the parser proceeds
+
+title:f,,year:1954
+        ^
+        |
+        -- "f,," does not have ",," at the beginning so the parser proceeds
+
+title:f,,year:1954
+         ^
+         |
+         -- ",,y" DOES have ",," at the beginning so the parser have just matched the rule "value".
+            We've used "absent?" method so the String ",," is not captured (only "f").
+```
+
+## Transforming the tree into Elasticsearch query
+
+Now that we have split our query String into a syntax tree we need to transform it to a Hash consumable by the Elasticsearch client.
+
+Parslet has a `Transform` class which allows programmer to define deep Hash transformations. What we need is a `Transform` like this:
+
+```rb
+class Transform < Parslet::Transform
+  rule(filter_field: simple(:filter_field), range: { lte: simple(:lte) }) do
+    {
+      filter: {
+        range: {
+          filter_field => { lte: lte.to_s }
+        }
+      }
+    }
+  end
+
+  rule(filter_field: simple(:filter_field), range: { gte: simple(:gte) }) do
+    {
+      filter: {
+        range: {
+          filter_field => { gte: gte.to_s }
+        }
+      }
+    }
+  end
+
+  rule(filter_field: simple(:filter_field), range: { lte: simple(:lte), gte: simple(:gte) }) do
+    {
+      filter: {
+        range: {
+          filter_field => { lte: lte.to_s, gte: gte.to_s }
+        }
+      }
+    }
+  end
+
+  rule(filter_field: simple(:filter_field), value: simple(:value)) do
+    {
+      filter: {
+        term: {
+          filter_field => value
+        }
+      }
+    }
+  end
+
+  rule(match_field: simple(:match_field), value: simple(:value)) do
+    {:match => { match_field => value}}
+  end
+
+  rule(subqueries: subtree(:subqueries)) do |dict|
+    # dict is already transformed Hash using the rules defined above
+    dict = dict[:subqueries]
+
+    output = {
+      filtered: {
+        # look if there's a `match` rule, if not include the `match_all` clause
+        query: dict.detect(-> { {match_all: {}} }){ |d| d[:match] },
+      }
+    }
+
+    filters = dict.map{ |d| d[:filter] }.compact
+
+    if filters.any?
+      # if any filters are present merge them under `filtered` key
+      output[:filtered].merge!(filter: {and: filters})
+      output
+    else
+      output
+    end
+  end
+end
+```
+
+The first argument for the `rule` method is a Hash to match against the product of the parser. The return value of the passed block is what will replace the matched Hash.
+For example:
+
+```rb
+transform = Transform.new
+transform.apply({match_field: "title", value: "foo"}) # => {:match=>{"title"=>"foo"}}
+```
+
+Another methods of `Parslet::Transform` used here are `simple` and `subtree`. `simple` roughly matches a value of a Hash which is not an Enumerable. `subtree` is a placeholder for tree transformation patterns that will match any kind of subtree.
+The block for `subtree` accepts an argument (`dict`) which is the transformed input up until this point. In the passed block to `subtree` we construct the final Hash.
+
+See for yourself:
+
+```rb
+transform = Transform.new
+transform.apply(subqueries: [{match_field: "title", value: "foo"}]) # => {:filtered=>{:query=>{:match=>{"title"=>"foo"}}}}
+```
+
+## Putting it all together
+
+Now that we have all the pieces sorted out we can use them to query Elasticsearch.
+
+First create some books. From your console:
+
+```sh
+curl -XPUT "http://localhost:9200/books/book/1" -d'
+{
+    "title": "The Godfather",
+    "year": 1969
+}'
+
+curl -XPUT "http://localhost:9200/books/book/2" -d'
+{
+    "title": "The Count of Monte Cristo",
+    "year": 1844
+}'
+```
+
+Now from irb:
+
+```rb
+require 'elasticsearch'
+require 'parslet'
+
+input = "title:godfather,,year:__1970"
+tree  = Parser.new.parse(input) # => {:subqueries=>[{:match_field=>"title"@0, :value=>"Godfather"@6}, {:filter_field=>"year"@17, :range=>{:lte=>"1970"@24}}]}
+query = Transform.new.apply(tree) # => {:filtered=>{:query=>{:match=>{"title"@0=>"Godfather"@6}}, :filter=>{:and=>[{:range=>{"year"@17=>{:lte=>"1970"}}}]}}}
+
+client = Elasticsearch::Client.new
+client.search(index: "books", body: {query: query}) # => {"took"=>18, "timed_out"=>false, "_shards"=>{"total"=>5, "successful"=>5, "failed"=>0}, "hits"=>{"total"=>1, "max_score"=>0.19178301, "hits"=>[{"_index"=>"books", "_type"=>"book", "_id"=>"1", "_score"=>0.19178301, "_source"=>{"title"=>"The Godfather", "year"=>1969}}]}}
+```
+
+The returned Hash has got the `"hits"` key which stores what we were looking for.
+
+# Conclusion
+
+The example I've shown here is pretty simple. It could be replaced with an approach that uses Regexp. But as soon as we start adding more fields and operators to our grammar the advantage of using parslet becomes apparent. Furthermore I found writing your own parser a lot more pleasent.
+
+The code that uses this approach for querying Elasticsearch server can be found [here](https://github.com/asok/parslet_example).
