@@ -24,6 +24,7 @@ url: "http://asok.github.io" # the base hostname & protocol for your site
 # twitter_username: ""
 github_username:  asok
 disqus_id: asok-github.io
+host: asok.github.io
 
 # Build settings
 markdown: kramdown
