@@ -16,7 +16,7 @@
 title: "asok's blog"
 email: ""
 description: > # this means to ignore newlines until "baseurl:"
-  This is my programming blog where I write some stuf that I think is worth sharing.
+  This is my programming blog where I write some stuff that I think is worth sharing.
   I develop the web using Ruby, JS, Clojure/ClojureScript and Elixir.
   My editor of choice is Emacs set up with Spacemacs.
 baseurl: "" # the subpath of your site, e.g. /blog

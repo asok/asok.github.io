@@ -9,11 +9,11 @@ categories: ruby
 
 Instead of a hardcoded maximum it is possible to get the width of the column and use that value. That way it is always correct.
 
-```
+```ruby
 validates_length_of :comment_body,
                     maximum: columns.detect{ |c| c.name == "comment_body" }.limit,
                     tokenizer: -> b { b.bytes } if table_exists?
 ```
 
 The `tokenizer` option is there so we make sure that we count bytes and not characters in the string (the Unicode characters can take more than 1 byte).
-The `if` statement is needed so it's possible to run the rake task for creating the database (at that point there would be no table).
+The `if` statement is needed so it's possible to run the rake task for creating the database (at that point there would be no table and we would get an error).
