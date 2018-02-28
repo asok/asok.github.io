@@ -10,7 +10,7 @@ I've used to apply `if` statements with `Hash#has_key?` method which as you migh
 
 Looking with envy at the Elixir's [pattern matching](https://elixir-lang.org/getting-started/case-cond-and-if.html) I wanted to have something similar. A way of specifying how a part of a Hash looks like, without going into details what the values are.
 
-The idea that I came up with is to use the recently [covered]() on my blog the case equality method.
+The idea that I came up with is to use the recently [covered](/ruby/2018/02/25/fun-with-case-equality-method.html) on my blog the case equality method.
 After all the purpose of it is to overwrite it in your own class in order "to provide meaningful semantics in case statements".
 When a value of a Hash is indiffirent I can "match" it against `Object` since everything in Ruby is an `Object`. Or use the ActiveSupport's `Object.present?` method.
 The goal was to make this:
