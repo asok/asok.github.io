@@ -50,6 +50,25 @@ module Includes
 
     if rest.empty?
       case arg
+      when ::Hash
+        Includes::Hash.new(arg)
+      when ::Array
+        Includes::Array.new(arg)
+      else
+        Includes::Array.new([arg])
+      end
+    else
+      Includes::Array.new(args)
+    end
+  end
+
+  class Abstract
+    def initialize(obj)
+      @obj = obj
+    end
+
+    def wrap(arg)
+      case arg
       when ::Array
         Includes::Array.new(arg)
       when ::Hash
@@ -57,43 +76,45 @@ module Includes
       else
         arg
       end
-    else
-      Includes::Array.new(args)
     end
   end
 
-  class Hash
-    def initialize(obj)
-      @obj = obj
-    end
-
+  class Hash < Abstract
     def ===(other)
       case other
-      when ::Hash
-        @obj.all? do |(key, value)|
-          other.has_key?(key) && Includes[value] === other[key]
+      when ::Hash, Hash
+        if @obj.empty?
+          @obj === other
+        else
+          @obj.all? do |(key, value)|
+            other.has_key?(key) && wrap(value) === other[key]
+          end
         end
       else
-        super
+        @obj === other
       end
     end
   end
 
-  class Array
+  class Array < Abstract
     def initialize(obj)
       @obj = obj
     end
 
     def ===(other)
       case other
-      when ::Array
-        @obj.all? do |value|
-          other.any? do |o|
-            Includes[value] === o
+      when ::Array, Array
+        if @obj.empty?
+          @obj === other
+        else
+          @obj.all? do |value|
+            other.any? do |o|
+              wrap(value) === o
+            end
           end
         end
       else
-        super
+        @obj === other
       end
     end
   end
