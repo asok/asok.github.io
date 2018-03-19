@@ -6,7 +6,7 @@ categories: ruby
 ---
 
 The big part of my work in [gabi](https://www.gabi.com) is to process the data in form of the Ruby Hash. If some keys are present and have a particular value I have to apply some logic. The trouble here is that the Hash can hold multiple nested Hashes.
-I've used to apply `if` statements with `Hash#has_key?` method which as you might guess resulted in an unreadable code. Hard to have a good sleep if you know that somewhere in your project there's a hairy code like that. So I've spent some time trying to rectify this situation.
+I've used to apply `if` statements with `Hash#has_key?` method which as you might guess resulted in a verbose code. Hard to have a good sleep if you know that somewhere in your project there's a hairy code like that. So I've spent some time trying to rectify this situation.
 
 Looking with envy at the Elixir's [pattern matching](https://elixir-lang.org/getting-started/case-cond-and-if.html) I wanted to have something similar. A way of specifying how a part of a Hash looks like, without going into details what the values are.
 
@@ -36,7 +36,7 @@ when Includes["a" => Object, "b" => {"c" => :present?.to_proc}]
 when Includes["d" => {"e" => /^no$/i}],
      Includes["d" => {"f" => /^yes$/i}]
   #do something else
-when Includes["g" => -> v { v && v > 0 }]
+when Includes["g" => -> v { v > 0 }]
   #do something completely else
 end
 ```
@@ -97,10 +97,6 @@ module Includes
   end
 
   class Array < Abstract
-    def initialize(obj)
-      @obj = obj
-    end
-
     def ===(other)
       case other
       when ::Array, Array
@@ -121,4 +117,4 @@ module Includes
 end
 ```
 
-It's not a full blown pattern matching library like [pattern-match](https://github.com/k-tsj/pattern-match). But it's small, simple and makes the job done.
+For sure it's not a full blown pattern matching library. But it's small, simple and makes the job done.

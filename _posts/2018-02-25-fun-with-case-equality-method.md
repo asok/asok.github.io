@@ -5,7 +5,7 @@ date:   2018-02-25 15:45:00 +0200
 categories: ruby
 ---
 
-Recently I've got accustomed to use the case equality method more often during my daily routines - that is writing a Rails application. I find it more readable than using plain `if`s.
+Recently I've to use the case equality method more often during my daily routines - that is writing a Rails application. I use it in conjunction with `case` statements. I find it more readable than using plain `if`s.
 For example when I have a pair of two dates and I expect that one or both can be a nil:
 
 ```ruby
@@ -24,7 +24,7 @@ def parse_date(value)
   case value
   when Date, DateTime
     value
-  when nil, '' # the command character `,` is like an OR operator here
+  when '', :nil?.to_proc
     nil
   when 'today'
     Date.current
@@ -57,7 +57,7 @@ In case of `Class#===` and `Array#===` it is not overwritten so effectively it's
 ```ruby
 def sanitize_age(value)
   case value
-  when nil
+  when nil, ''
     raise ArgumentError, "age is blank"
   when :negative?.to_proc
     raise ArgumentError, "age is less than 0"
@@ -72,7 +72,7 @@ def sanitize_age(value)
   end
 end
 
-User.create!(age: sanitze_age(params[:age]))
+User.create!(age: sanitize_age(params[:age]))
 ```
 
 Don't forget that you can use the splat operator to compare against any of the elements of an `Array`:
@@ -100,4 +100,4 @@ irb(main):001:0> (1...18) === 17
 => true
 ```
 
-Despite being a well known feature the case quality method is not being used so much in the wild. I think that developers could reach for it it more often as it makes your code more readable and prettier at the same time.
+Despite being a well known feature the case quality method is not being used so much in the wild. I think that developers could reach for it more often as it makes your code more readable and prettier at the same time.
