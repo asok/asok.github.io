@@ -10,6 +10,24 @@ layout: default
     {% for post in site.posts %}
       <li>
         <span class="post-meta">{{ post.date | date: "%b %-d, %Y" }}</span>
+        <span class="post-meta">
+          {% if post.categories contains "rails" %}
+            {% include icon-rails.html size="18px" %}
+
+          {% elsif post.categories contains "ruby" %}
+            {% include icon-ruby.html size="18px" %}
+
+          {% elsif post.categories contains "emacs" %}
+             {% include icon-emacs.html size="18px" %}
+
+          {% elsif post.categories contains "elixir" %}
+            {% include icon-elixir.html size="18px" %}
+
+          {% elsif post.categories contains "phoenix" %}
+            {% include icon-phoenix.html size="18px" %}
+
+          {% endif %}
+        </span>
 
         <h2>
           <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title | escape }}</a>

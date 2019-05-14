@@ -2,7 +2,7 @@
 layout: post
 title:  "Smart maximum of LenghtValidator"
 date:   2016-12-10 04:16:00 +0200
-categories: ruby
+categories: rails
 ---
 
 `ActiveModel` comes with a handy `validates_length_of` helper which, as the name suggests, checks if the length of the attribute is correct. You pass a `maximum` option to specify the maximum length. And normally you hardcode this value. In case you change your column width in the underlying database you might forget to update this value.

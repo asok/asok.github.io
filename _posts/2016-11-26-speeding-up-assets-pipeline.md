@@ -2,7 +2,7 @@
 layout: post
 title:  "Speeding up assets pipeline"
 date:   2016-11-26 11:00:00 +0200
-categories: ruby
+categories: rails
 ---
 
 From some time on the project I'm working on I've observed that the compilation time of the rails assets became unbearably long. On my local machine calling `rake assets:precompile` takes 5 minutes, on the production system that was something around 10 minutes.
