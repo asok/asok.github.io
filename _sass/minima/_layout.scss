@@ -190,10 +190,14 @@
 }
 
 .post-link {
-    display: block;
+    display: inline;
     font-size: 24px;
 }
 
+.post-icon {
+  float: right;
+  opacity: 0.4;
+}
 
 
 /**
