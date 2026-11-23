@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- Three throwaway blog layouts on /?variant=A, B or C. -->
+<html lang="en" data-type="software"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="page-type" content="software"><meta name="site-kind" content="software">
+<meta name="description" content="Asok’s programming notes on Ruby, Rails, Emacs and Elixir.">
+<title><%= article ? ERB::Util.html_escape(article[:title]) + ' | ' : '' %>Asok's blog</title>
+<link rel="stylesheet" href="/style.css"><script defer src="/scene.js"></script></head>
+<body class="v<%= variant %>"><a class="skip" href="#main">Skip to content</a>
+<header><div class="frame top">
+<nav><a href="/?variant=<%=variant%>#archive">Post archive</a><a href="https://github.com/asok">GitHub ↗</a><a href="/feed.xml">RSS ↗</a></nav></div></header>
+<main id="main" class="frame">
+<% if article %>
+<article><a href="/?variant=<%=variant%>#archive">← Post archive</a>
+<p class="meta"><img src="/images/<%=article[:category]%>.svg" alt=""> <%= article[:category] %> / <%=article[:date]%></p>
+<h1><%=ERB::Util.html_escape(article[:title])%></h1>
+<%= Kramdown::Document.new(article[:body], input: 'GFM').to_html %></article>
+<% else %>
+<section class="hero" data-enter>
+<% if variant == 'A' %><canvas id="world" width="640" height="220" aria-hidden="true"></canvas><% end %>
+<div class="intro"><div class="eyebrow"><b></b> PROGRAMMING JOURNAL</div>
+<h1>Asok’s blog<span>.</span></h1>
+</div></section>
+<section id="archive"><div class="label"><h2><%= {'A'=>'Post archive','B'=>'Memory card','C'=>'Track listing'}[variant] %></h2><span><%=posts.size%> POSTS</span></div>
+<% if variant == 'C' %><nav class="years" aria-label="Jump to year"><% posts.map{|p|p[:date].year}.uniq.each do |year| %><a href="#y<%=year%>"><%=year%> ↓</a><% end %></nav><% end %>
+<div class="entries">
+<% posts.each_with_index do |p,i| %>
+<% if variant == 'C' && (i.zero? || posts[i-1][:date].year != p[:date].year) %><h3 id="y<%=p[:date].year%>"><%=p[:date].year%></h3><% end %>
+<a class="entry" href="<%=p[:url]%>?variant=<%=variant%>">
+<span class="icon"><img src="/images/<%=p[:category]%>.svg" alt="<%=p[:category].capitalize%>"></span>
+<span class="entry-title"><%=ERB::Util.html_escape(p[:title])%></span><time datetime="<%=p[:date]%>"><%=p[:date].strftime('%d %b %Y')%></time></a>
+<% end %></div></section><% end %>
+</main><footer class="frame"><a href="https://github.com/asok">Asok on GitHub ↗</a><a href="/feed.xml">Subscribe via RSS ↗</a></footer>
+<% names = {'A'=>'Title screen','B'=>'Memory card','C'=>'Disc player'}; keys=names.keys; idx=keys.index(variant) %>
+<aside aria-label="Prototype switcher"><a id="prev" aria-label="Previous design" href="?variant=<%=keys[(idx-1)%3]%>">←</a><span><small>PROTOTYPE <%=idx+1%>/3</small><strong><%=names[variant]%></strong></span><a id="next" aria-label="Next design" href="?variant=<%=keys[(idx+1)%3]%>">→</a></aside>
+</body></html>
