@@ -363,6 +363,23 @@ article pre {
   background:#141c29;
   color:#eff3f7;
 }
+/* Rouge token classes emitted by Kramdown for language-tagged fences. */
+article .highlight :is(.k, .kc, .kd, .kn, .kp, .kr, .nt) {
+  color: #ffa6ab;
+}
+article .highlight :is(.s, .s1, .s2, .sb, .sh, .sr, .ss) {
+  color: #c0ea88;
+}
+article .highlight :is(.m, .mi, .mf, .mh, .mo, .no, .se, .si) {
+  color: #ffd095;
+}
+article .highlight :is(.nf, .nb, .nc, .nn, .nv, .vi) {
+  color: #94d8ef;
+}
+article .highlight :is(.c, .c1, .cm, .cp) {
+  color: #a2b1c3;
+  font-style: italic;
+}
 article img {
   max-width:100%;
 }
